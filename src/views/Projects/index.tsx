@@ -1,6 +1,386 @@
+import fetchService from '@/api/request'
+import {
+    Button,
+    DatePicker,
+    Form,
+    Input,
+    Select,
+    Table,
+    Tag,
+    type GetProp,
+    type TableProps,
+} from 'antd'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import type {
+    ListResponse,
+    ProjectItem,
+    TableParams,
+} from '@/types/project.type'
+import { STAGE, STATUS } from '@/constant'
+import type { User } from '@/types/user.type'
+import type { Dayjs } from 'dayjs'
+
+type ProjectSearchValues = {
+    name?: string
+    principalId?: string
+    status?: ProjectItem['status']
+    stage?: ProjectItem['stage']
+    rangeTime?: [Dayjs, Dayjs] | null
+}
+
+export type ColumnsType<T extends object = object> = TableProps<T>['columns']
+export type TablePaginationConfig = Exclude<
+    GetProp<TableProps, 'pagination'>,
+    boolean
+>
+
+const { RangePicker } = DatePicker
+
+const isNonNullable = <T,>(val: T): val is NonNullable<T> => {
+    return val !== undefined && val !== null
+}
+
+const toURLSearchParams = (record: Record<string, unknown>) => {
+    const params = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(record)) {
+        if (value === undefined || value === null) {
+            continue
+        }
+
+        // 数组会变成重复参数，例如 type=design&type=test
+        if (Array.isArray(value)) {
+            value.forEach((item) => {
+                params.append(key, String(item))
+            })
+        } else {
+            params.set(key, String(value))
+        }
+    }
+
+    return params
+}
+
+const getProjectParams = (params: TableParams) => {
+    const { pagination, filters, sortField, sortOrder, ...restParams } = params
+    const result: Record<string, unknown> = {}
+
+    result.limit = pagination?.pageSize
+    result.page = pagination?.current
+
+    if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+            if (isNonNullable(value)) {
+                result[key] = value
+            }
+        })
+    }
+
+    if (sortField && sortOrder) {
+        result.orderby = sortField
+        result.order = sortOrder === 'ascend' ? 'asc' : 'desc'
+    }
+
+    // 处理其他参数
+    Object.entries(restParams).forEach(([key, value]) => {
+        if (isNonNullable(value)) {
+            result[key] = value
+        }
+    })
+
+    return result
+}
+
 function Projects() {
+    const [form] = Form.useForm()
+    const [tableParams, setTableParams] = useState<TableParams>({
+        pagination: {
+            current: 1,
+            pageSize: 10,
+        },
+    })
+
+    const columns: ColumnsType<ProjectItem> = [
+        {
+            title: '项目名称',
+            dataIndex: 'name',
+            fixed: 'start',
+            ellipsis: true,
+        },
+        {
+            title: '负责人',
+            dataIndex: 'principalId',
+            fixed: 'start',
+            render: (principalId: string) => {
+                const user = userList?.find(
+                    (item) => item.value === principalId,
+                )
+                return user?.label ?? '--'
+            },
+        },
+        {
+            title: '计划开始时间',
+            key: 'startTime',
+            dataIndex: 'startTime',
+            sorter: true,
+            sortOrder:
+                tableParams.sortField === 'startTime'
+                    ? (tableParams.sortOrder ?? null)
+                    : null,
+            width: 160,
+        },
+        {
+            title: '计划结束时间',
+            key: 'endTime',
+            dataIndex: 'endTime',
+            sorter: true,
+            sortOrder:
+                tableParams.sortField === 'endTime'
+                    ? (tableParams.sortOrder ?? null)
+                    : null,
+            width: 160,
+        },
+        {
+            title: '实际开始时间',
+            key: 'realStartTime',
+            dataIndex: 'realStartTime',
+            sorter: true,
+            sortOrder:
+                tableParams.sortField === 'realStartTime'
+                    ? (tableParams.sortOrder ?? null)
+                    : null,
+            width: 160,
+        },
+        {
+            title: '实际结束时间',
+            key: 'realEndTime',
+            dataIndex: 'realEndTime',
+            sorter: true,
+            sortOrder:
+                tableParams.sortField === 'realEndTime'
+                    ? (tableParams.sortOrder ?? null)
+                    : null,
+            width: 160,
+        },
+        {
+            title: '任务数',
+            dataIndex: 'taskCount',
+            sorter: true,
+            width: 120,
+            render: (value: number, record: ProjectItem) => {
+                return `${record.completedTaskCount} / ${value}`
+            },
+        },
+        {
+            title: '阶段',
+            dataIndex: 'stage',
+            width: 120,
+            render: (value: string) => {
+                const data = STAGE.find((item) => item.value === value)
+                return data ? <Tag color={data.color}>{data?.label}</Tag> : '--'
+            },
+        },
+        {
+            title: '状态',
+            dataIndex: 'status',
+            width: 120,
+            render: (value: string) => {
+                const data = STATUS.find((item) => item.value === value)
+                return data ? <Tag color={data.color}>{data?.label}</Tag> : '--'
+            },
+        },
+        {
+            title: '操作',
+            key: 'action',
+            width: 240,
+            fixed: 'end',
+            render: () => (
+                <div className="flex flex-wrap">
+                    <Button type="link">详情</Button>
+                    <Button type="link">编辑</Button>
+                    <Button type="link" danger>
+                        删除
+                    </Button>
+                </div>
+            ),
+        },
+    ]
+
+    const queryString = toURLSearchParams(
+        getProjectParams(tableParams),
+    ).toString()
+
+    const { data, isFetching, error } = useQuery({
+        queryKey: ['projects', queryString],
+        queryFn: async ({ signal }) => {
+            const result = await fetchService.get<ListResponse>(
+                `/api/projects?${queryString}`,
+                { signal }, // 用于取消请求
+            )
+
+            if (!result) {
+                throw new Error('暂无项目')
+            }
+
+            return result
+        },
+        // 调试阶段失败后直接展示错误
+        retry: false,
+    })
+
+    const { data: userList, isFetching: isUserFetching } = useQuery({
+        queryKey: ['users'],
+        queryFn: async ({ signal }) => {
+            const result = await fetchService.get<User[]>('/api/users/all', {
+                signal,
+            })
+
+            if (!result) {
+                throw new Error('暂无人员')
+            }
+
+            return result.map((item) => ({
+                value: item.id,
+                label: item.name,
+            }))
+        },
+    })
+
+    const handleTableChange: TableProps<ProjectItem>['onChange'] = (
+        pagination,
+        filters,
+        sorter,
+        extra,
+    ) => {
+        setTableParams((prev) => ({
+            ...prev,
+            pagination: {
+                current: extra.action === 'sort' ? 1 : pagination.current,
+                pageSize: pagination.pageSize,
+            },
+            filters,
+            sortOrder: Array.isArray(sorter) ? undefined : sorter.order,
+            sortField: Array.isArray(sorter) ? undefined : sorter.field,
+        }))
+    }
+
+    const handleFinish = (formData: ProjectSearchValues) => {
+        console.log('触发了查询', formData)
+        setTableParams((prev) => ({
+            ...prev,
+            name: formData.name,
+            status: formData.status,
+            stage: formData.stage,
+            principalId: formData.principalId,
+            startTime: formData.rangeTime?.[0]?.format('YYYY-MM-DD'),
+            endTime: formData.rangeTime?.[1]?.format('YYYY-MM-DD'),
+            pagination: {
+                ...prev.pagination,
+                current: 1,
+                pageSize: prev.pagination?.pageSize ?? 10,
+            },
+        }))
+    }
+
+    const handleRest = () => {
+        form.resetFields()
+        setTableParams({
+            pagination: {
+                current: 1,
+                pageSize: 10,
+            },
+        })
+    }
+
     return (
-        <div>项目列表</div>
+        <div className="w-full min-h-full flex flex-col gap-[20px]">
+            <h2>项目管理</h2>
+            <Form<ProjectSearchValues>
+                layout="inline"
+                onFinish={handleFinish}
+                form={form}
+            >
+                <Form.Item name="name" label="">
+                    <Input
+                        placeholder="请输入项目名称"
+                        allowClear
+                        maxLength={60}
+                    />
+                </Form.Item>
+
+                <Form.Item name="principalId">
+                    <Select
+                        allowClear
+                        placeholder="请选择负责人"
+                        options={userList}
+                        loading={isUserFetching}
+                    ></Select>
+                </Form.Item>
+
+                <Form.Item name="stage">
+                    <Select
+                        allowClear
+                        placeholder="请选择阶段"
+                        options={STAGE}
+                    ></Select>
+                </Form.Item>
+
+                <Form.Item name="status">
+                    <Select
+                        allowClear
+                        placeholder="请选择状态"
+                        options={STATUS}
+                    ></Select>
+                </Form.Item>
+
+                <Form.Item name="rangeTime">
+                    <RangePicker
+                        allowClear
+                        placeholder={[
+                            '请选择计划开始时间',
+                            '请选择计划结束时间',
+                        ]}
+                        id={{
+                            start: 'startTime',
+                            end: 'endTime',
+                        }}
+                    />
+                </Form.Item>
+
+                <Form.Item label={null}>
+                    <Button
+                        type="primary"
+                        htmlType="submit"
+                        className="mr-[14px]"
+                    >
+                        查询
+                    </Button>
+                    <Button htmlType="button" onClick={handleRest}>
+                        重置
+                    </Button>
+                </Form.Item>
+            </Form>
+
+            {error && (
+                <p role="alert" className="text-red-500">
+                    {error.message}
+                </p>
+            )}
+            <Table<ProjectItem>
+                columns={columns}
+                rowKey="id"
+                dataSource={data?.list ?? []}
+                pagination={{
+                    ...tableParams.pagination,
+                    total: data?.total ?? 0,
+                    hideOnSinglePage: true,
+                }}
+                loading={isFetching}
+                onChange={handleTableChange}
+                scroll={{ x: 1600 }}
+            />
+        </div>
     )
 }
 

@@ -1,10 +1,13 @@
+import type { UserInfo } from '@/types/user.type'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
 type UserStore = {
     token: string
+    userInfo?: UserInfo | undefined
     setToken: (token: string) => void
-    clearToken: () => void
+    setUserInfo: (info: UserInfo) => void
+    clear: () => void
 }
 
 export const useUserStore = create<UserStore>()(
@@ -12,7 +15,12 @@ export const useUserStore = create<UserStore>()(
         (set) => ({
             token: '',
             setToken: (token: string) => set({ token }),
-            clearToken: () => set({ token: '' }),
+            setUserInfo: (info: UserInfo) => set({ userInfo: info }),
+            clear: () =>
+                set({
+                    token: '',
+                    userInfo: undefined,
+                }),
         }),
         {
             name: 'user-storage',

@@ -158,15 +158,7 @@ fetchService.addResponseInterceptor(async (response) => {
             break
         }
         case 401:
-            useUserStore.getState().clearToken()
-            // 在单页应用内部切换
-            // if (router.state.location.pathname !== '/login') {
-            //     await router.navigate('/login', {replace: true})
-            // }
-            // 以刷新页面方式切换
-            if (window.location.pathname !== '/login') {
-                window.location.replace('/login')
-            }
+            useUserStore.getState().clear()
             break
         case 500:
             message.error('服务端错误，请稍后再试！')
