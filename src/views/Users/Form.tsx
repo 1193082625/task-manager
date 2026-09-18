@@ -159,8 +159,18 @@ function UserForm({ id, formOpen, onClose, onSaved }: UserFormProps) {
                 >
                     <Input placeholder="请输入成员姓名" disabled={!!id} />
                 </Form.Item>
-                <Form.Item name="phone" label="手机号">
-                    <Input placeholder="请输入成员姓名" disabled={!!id} />
+                <Form.Item
+                    name="phone"
+                    label="手机号"
+                    rules={[
+                        { required: true, message: '请输入手机号' },
+                        {
+                            pattern: /^1[3-9]\d{9}$/,
+                            message: '请输入正确的手机号',
+                        },
+                    ]}
+                >
+                    <Input placeholder="请输入成员姓名" maxLength={11} />
                 </Form.Item>
                 <Form.Item name="role" label="角色">
                     <Select

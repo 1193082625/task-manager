@@ -1,6 +1,7 @@
 import { clearSession } from '@/api/clearSession'
 import router from '@/routes'
 import { useUserStore } from '@/stores/user'
+import { LogoutOutlined } from '@ant-design/icons'
 import { NavLink, Outlet } from 'react-router'
 
 function DefaultLayout() {
@@ -36,12 +37,11 @@ function DefaultLayout() {
 
     return (
         <div className="flex flex-col w-full h-[100vh] bg-[#F2F4F7] overflow-hidden">
-            <header className="shrink-0 bg-white flex items-center justify-between">
+            <header className="shrink-0 bg-white flex items-center justify-between px-[20px] border-b border-[#F3F4F6]">
                 {/* logo */}
                 <div
                     style={{
                         padding: '22px 20px 18px',
-                        borderBottom: '1px solid #F3F4F6',
                     }}
                 >
                     <div
@@ -90,13 +90,15 @@ function DefaultLayout() {
                 </div>
 
                 {/* user */}
-                <div>
-                    欢迎你，{userInfo?.name}
-                    <button onClick={handleLogout}>退出登录</button>
+                <div className="flex items-center gap-[10px]">
+                    <div>欢迎你，{userInfo?.name}</div>
+                    <button onClick={handleLogout}>
+                        <LogoutOutlined />
+                    </button>
                 </div>
             </header>
             <div className="flex-1 flex min-h-0 min-w-0">
-                <aside className="w-[240px] shrink-0 overflow-y-auto bg-white pt-[20px] px-[12px]">
+                <aside className="w-[240px] shrink-0 overflow-y-auto bg-white pt-[20px] px-[12px] border-r border-[#F3F4F6]">
                     <nav className="flex flex-col">
                         {navData.map((item) => {
                             return (
