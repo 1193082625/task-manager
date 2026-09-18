@@ -47,3 +47,20 @@ export const STAGE = [
         color: 'purple',
     },
 ]
+
+export const dateFormat = 'YYYY-MM-DD'
+
+export const USER_ROLES = [
+    {
+        value: 'designer',
+        label: '设计',
+    },
+    {
+        value: 'developer',
+        label: '开发',
+    },
+    {
+        value: 'test',
+        label: '测试',
+    },
+]

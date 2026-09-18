@@ -1,10 +1,10 @@
+import { clearSession } from '@/api/clearSession'
 import router from '@/routes'
 import { useUserStore } from '@/stores/user'
 import { NavLink, Outlet } from 'react-router'
 
 function DefaultLayout() {
     const userInfo = useUserStore((state) => state.userInfo)
-    const clear = useUserStore((state) => state.clear)
 
     const navData = [
         {
@@ -30,7 +30,7 @@ function DefaultLayout() {
     ]
 
     const handleLogout = () => {
-        clear()
+        clearSession()
         router.navigate('/login', { replace: true })
     }
 

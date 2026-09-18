@@ -1,3 +1,6 @@
+import type { GetProp, TablePaginationConfig, TableProps } from 'antd'
+import type { SorterResult } from 'antd/es/table/interface'
+
 export interface TaskItem {
     id: string
     name: string
@@ -12,4 +15,21 @@ export interface TaskItem {
 
 export interface Task extends TaskItem {
     description: string
+}
+
+export type CreateTask = Omit<Task, 'id'>
+
+export interface TableParams {
+    pagination?: TablePaginationConfig
+    sortField?: SorterResult<unknown>['field']
+    sortOrder?: SorterResult<unknown>['order']
+    filters?: Parameters<GetProp<TableProps, 'onChange'>>[1]
+    name?: string
+    startTime?: string
+    endTime?: string
+}
+
+export interface ListResponse {
+    list: TaskItem[]
+    total: number
 }

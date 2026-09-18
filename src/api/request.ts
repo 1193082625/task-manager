@@ -1,5 +1,6 @@
 import { useUserStore } from '@/stores/user'
 import { message } from 'antd'
+import { clearSession } from './clearSession'
 
 type requestInterceptor = (
     url: string,
@@ -158,7 +159,7 @@ fetchService.addResponseInterceptor(async (response) => {
             break
         }
         case 401:
-            useUserStore.getState().clear()
+            clearSession()
             break
         case 500:
             message.error('服务端错误，请稍后再试！')

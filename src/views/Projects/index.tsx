@@ -2,8 +2,11 @@ import fetchService from '@/api/request'
 import {
     Button,
     DatePicker,
+    Empty,
     Form,
     Input,
+    message,
+    Popconfirm,
     Select,
     Table,
     Tag,
@@ -11,15 +14,18 @@ import {
     type TableProps,
 } from 'antd'
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
     ListResponse,
     ProjectItem,
     TableParams,
 } from '@/types/project.type'
 import { STAGE, STATUS } from '@/constant'
-import type { User } from '@/types/user.type'
 import type { Dayjs } from 'dayjs'
+import ProjectDetail from './Detail'
+import { PlusOutlined } from '@ant-design/icons'
+import { useUsers } from '@/hooks/useUsers'
+import ProjectForm from './Form'
 
 type ProjectSearchValues = {
     name?: string
@@ -94,12 +100,17 @@ const getProjectParams = (params: TableParams) => {
 
 function Projects() {
     const [form] = Form.useForm()
+    const [detailOpen, setDetailOpen] = useState(false)
+    const [formOpen, setFormOpen] = useState(false)
+    const [activeProjectId, setActiveProjectId] = useState<string | undefined>()
+    const [editProjectId, setEditProjectId] = useState<string>()
     const [tableParams, setTableParams] = useState<TableParams>({
         pagination: {
             current: 1,
             pageSize: 10,
         },
     })
+    const queryClient = useQueryClient()
 
     const columns: ColumnsType<ProjectItem> = [
         {
@@ -195,13 +206,25 @@ function Projects() {
             key: 'action',
             width: 240,
             fixed: 'end',
-            render: () => (
+            render: (_, record: ProjectItem) => (
                 <div className="flex flex-wrap">
-                    <Button type="link">详情</Button>
-                    <Button type="link">编辑</Button>
-                    <Button type="link" danger>
-                        删除
+                    <Button type="link" onClick={() => handleDetail(record.id)}>
+                        详情
                     </Button>
+                    <Button type="link" onClick={() => handleEdit(record.id)}>
+                        编辑
+                    </Button>
+                    <Popconfirm
+                        title="删除项目"
+                        description={`确认删除${record.name}项目吗？`}
+                        onConfirm={() => handleDelete(record.id)}
+                        okText="删除"
+                        cancelText="取消"
+                    >
+                        <Button type="link" danger>
+                            删除
+                        </Button>
+                    </Popconfirm>
                 </div>
             ),
         },
@@ -229,23 +252,11 @@ function Projects() {
         retry: false,
     })
 
-    const { data: userList, isFetching: isUserFetching } = useQuery({
-        queryKey: ['users'],
-        queryFn: async ({ signal }) => {
-            const result = await fetchService.get<User[]>('/api/users/all', {
-                signal,
-            })
-
-            if (!result) {
-                throw new Error('暂无人员')
-            }
-
-            return result.map((item) => ({
-                value: item.id,
-                label: item.name,
-            }))
-        },
-    })
+    const { data: userResult = [], isFetching: isUserFetching } = useUsers()
+    const userList = userResult.map((user) => ({
+        value: user.id,
+        label: user.name,
+    }))
 
     const handleTableChange: TableProps<ProjectItem>['onChange'] = (
         pagination,
@@ -293,94 +304,189 @@ function Projects() {
         })
     }
 
+    const handleDetail = (id: string) => {
+        setActiveProjectId(id)
+        setDetailOpen(true)
+    }
+
+    const handleEdit = (id: string) => {
+        setEditProjectId(id)
+        setFormOpen(true)
+    }
+
+    const handleDelete = async (id: string) => {
+        try {
+            await fetchService.delete(`/api/project/${id}`)
+        } catch {
+            message.error('删除失败')
+        }
+
+        message.success('删除成功')
+
+        const current = tableParams.pagination?.current ?? 1
+        const shouldGoBack = current > 1 && data?.list.length === 1
+
+        if (shouldGoBack) {
+            setTableParams((prev) => ({
+                ...prev,
+                pagination: {
+                    ...prev.pagination,
+                    current: current - 1,
+                },
+            }))
+        }
+        await queryClient.invalidateQueries({
+            queryKey: ['projects'],
+        })
+    }
+
+    const handleDetailClose = () => {
+        setDetailOpen(false)
+    }
+
+    const handleCreateProject = () => {
+        setFormOpen(true)
+    }
+
+    const handleFormClose = async () => {
+        setEditProjectId(undefined)
+        setFormOpen(false)
+    }
+
+    const handleFormSaved = async () => {
+        await Promise.all([
+            queryClient.invalidateQueries(
+                { queryKey: ['projects'] },
+                { throwOnError: true },
+            ),
+            ...(editProjectId
+                ? [
+                      queryClient.resetQueries(
+                          {
+                              queryKey: ['project-detail', editProjectId],
+                              exact: true,
+                          },
+                          { throwOnError: true },
+                      ),
+                  ]
+                : []),
+        ])
+    }
+
     return (
-        <div className="w-full min-h-full flex flex-col gap-[20px]">
-            <h2>项目管理</h2>
-            <Form<ProjectSearchValues>
-                layout="inline"
-                onFinish={handleFinish}
-                form={form}
-            >
-                <Form.Item name="name" label="">
-                    <Input
-                        placeholder="请输入项目名称"
-                        allowClear
-                        maxLength={60}
-                    />
-                </Form.Item>
-
-                <Form.Item name="principalId">
-                    <Select
-                        allowClear
-                        placeholder="请选择负责人"
-                        options={userList}
-                        loading={isUserFetching}
-                    ></Select>
-                </Form.Item>
-
-                <Form.Item name="stage">
-                    <Select
-                        allowClear
-                        placeholder="请选择阶段"
-                        options={STAGE}
-                    ></Select>
-                </Form.Item>
-
-                <Form.Item name="status">
-                    <Select
-                        allowClear
-                        placeholder="请选择状态"
-                        options={STATUS}
-                    ></Select>
-                </Form.Item>
-
-                <Form.Item name="rangeTime">
-                    <RangePicker
-                        allowClear
-                        placeholder={[
-                            '请选择计划开始时间',
-                            '请选择计划结束时间',
-                        ]}
-                        id={{
-                            start: 'startTime',
-                            end: 'endTime',
-                        }}
-                    />
-                </Form.Item>
-
-                <Form.Item label={null}>
+        <>
+            <div className="w-full min-h-full flex flex-col gap-[20px]">
+                <div className="flex items-center justify-between">
+                    <h2>项目管理</h2>
                     <Button
                         type="primary"
-                        htmlType="submit"
-                        className="mr-[14px]"
+                        icon={<PlusOutlined />}
+                        onClick={handleCreateProject}
                     >
-                        查询
+                        添加项目
                     </Button>
-                    <Button htmlType="button" onClick={handleRest}>
-                        重置
-                    </Button>
-                </Form.Item>
-            </Form>
+                </div>
+                <Form<ProjectSearchValues>
+                    layout="inline"
+                    onFinish={handleFinish}
+                    form={form}
+                    className="flex item-center gap-[16px]"
+                >
+                    <Form.Item name="name" label="">
+                        <Input
+                            placeholder="请输入项目名称"
+                            allowClear
+                            maxLength={60}
+                        />
+                    </Form.Item>
 
-            {error && (
-                <p role="alert" className="text-red-500">
-                    {error.message}
-                </p>
-            )}
-            <Table<ProjectItem>
-                columns={columns}
-                rowKey="id"
-                dataSource={data?.list ?? []}
-                pagination={{
-                    ...tableParams.pagination,
-                    total: data?.total ?? 0,
-                    hideOnSinglePage: true,
-                }}
-                loading={isFetching}
-                onChange={handleTableChange}
-                scroll={{ x: 1600 }}
+                    <Form.Item name="principalId">
+                        <Select
+                            allowClear
+                            placeholder="请选择负责人"
+                            options={userList}
+                            loading={isUserFetching}
+                        ></Select>
+                    </Form.Item>
+
+                    <Form.Item name="stage">
+                        <Select
+                            allowClear
+                            placeholder="请选择阶段"
+                            options={STAGE}
+                        ></Select>
+                    </Form.Item>
+
+                    <Form.Item name="status">
+                        <Select
+                            allowClear
+                            placeholder="请选择状态"
+                            options={STATUS}
+                        ></Select>
+                    </Form.Item>
+
+                    <Form.Item name="rangeTime">
+                        <RangePicker
+                            allowClear
+                            placeholder={[
+                                '请选择计划开始时间',
+                                '请选择计划结束时间',
+                            ]}
+                            id={{
+                                start: 'startTime',
+                                end: 'endTime',
+                            }}
+                        />
+                    </Form.Item>
+
+                    <Form.Item label={null}>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            className="mr-[14px]"
+                        >
+                            查询
+                        </Button>
+                        <Button htmlType="button" onClick={handleRest}>
+                            重置
+                        </Button>
+                    </Form.Item>
+                </Form>
+
+                {error && (
+                    <p role="alert" className="text-red-500">
+                        {error.message}
+                    </p>
+                )}
+                <Table<ProjectItem>
+                    columns={columns}
+                    rowKey="id"
+                    dataSource={data?.list ?? []}
+                    pagination={{
+                        ...tableParams.pagination,
+                        total: data?.total ?? 0,
+                        hideOnSinglePage: true,
+                    }}
+                    loading={isFetching}
+                    onChange={handleTableChange}
+                    scroll={{ x: 1600 }}
+                    locale={{
+                        emptyText: <Empty />,
+                    }}
+                />
+            </div>
+            <ProjectDetail
+                projectId={activeProjectId}
+                detailOpen={detailOpen}
+                onClose={handleDetailClose}
             />
-        </div>
+            <ProjectForm
+                projectId={editProjectId}
+                formOpen={formOpen}
+                onClose={handleFormClose}
+                onSaved={handleFormSaved}
+            />
+        </>
     )
 }
 
