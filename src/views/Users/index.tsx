@@ -215,9 +215,10 @@ function Users() {
 
     const handleDelete = async (id: string) => {
         try {
-            await fetchService.delete(`/api/user/${id}`)
+            await fetchService.delete(`/api/users/${id}`)
         } catch {
             message.error('删除失败')
+            return
         }
         message.success('删除成功')
 

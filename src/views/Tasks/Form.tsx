@@ -1,9 +1,15 @@
 import fetchService from '@/api/request'
 import Loading from '@/components/Loading'
-import { dateFormat, STATUS } from '@/constant'
+import { STATUS } from '@/constant'
 import { useProjects } from '@/hooks/useProjects'
 import { useUsers } from '@/hooks/useUsers'
-import type { CreateTask, Task } from '@/types/task.type'
+import type { Task } from '@/types/task.type'
+import {
+    dateTimeFormat,
+    formatBeijingTime,
+    pickerTimeToIso,
+    toBeijingTime,
+} from '@/utils/date-time'
 import { useQuery } from '@tanstack/react-query'
 import {
     Drawer,
@@ -16,22 +22,38 @@ import {
     Tag,
     DatePicker,
 } from 'antd'
-import dayjs from 'dayjs'
+import type { Dayjs } from 'dayjs'
 import { useEffect, useRef, useState } from 'react'
 
 type TaskFormProps = {
     id?: string
+    projectId?: string
     onClose: () => void
     onSaved: () => Promise<void>
     formOpen: boolean
 }
 
-function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
-    const [form] = Form.useForm()
+type TaskFormValues = {
+    name: string
+    description?: string
+    projectId?: string | null
+    principalId: string
+    startTime: Dayjs
+    endTime: Dayjs
+}
+
+function TaskForm({
+    id,
+    projectId,
+    formOpen,
+    onClose,
+    onSaved,
+}: TaskFormProps) {
+    const [form] = Form.useForm<TaskFormValues>()
     const [isSaving, setIsSaving] = useState(false)
     const savingRef = useRef(false)
 
-    const handleFinish = (data: CreateTask) => {
+    const handleFinish = (data: TaskFormValues) => {
         console.log('添加任务', data)
     }
 
@@ -48,7 +70,7 @@ function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
         queryKey: ['task-detail', id],
         enabled: formOpen && !!id,
         queryFn: async ({ signal }) => {
-            const result = await fetchService.get<Task>(`/api/task/${id}`, {
+            const result = await fetchService.get<Task>(`/api/tasks/${id}`, {
                 signal,
             })
 
@@ -72,7 +94,7 @@ function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
         }
 
         // 区分创建模式和不同项目的编辑模式
-        const target = id ? `edit:${id}` : 'create'
+        const target = id ? `edit:${id}` : `create:${projectId ?? 'none'}`
 
         if (initializedFor.current === target) return
 
@@ -87,19 +109,19 @@ function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
                 description: detail.description,
                 projectId: detail.projectId,
                 principalId: detail.principalId,
-                startTime: detail.startTime ? dayjs(detail.startTime) : null,
-                endTime: detail.endTime ? dayjs(detail.endTime) : null,
-                realStartTime: detail.realStartTime
-                    ? dayjs(detail.realStartTime)
-                    : null,
-                realEndTime: detail.realEndTime
-                    ? dayjs(detail.realEndTime)
-                    : null,
+                startTime: toBeijingTime(detail.startTime),
+                endTime: toBeijingTime(detail.endTime),
+            })
+        }
+
+        if (!id && projectId) {
+            form.setFieldsValue({
+                projectId: projectId,
             })
         }
 
         initializedFor.current = target
-    }, [formOpen, id, detail, form])
+    }, [formOpen, id, projectId, detail, form])
 
     const handleSave = async () => {
         if (savingRef.current) return
@@ -118,20 +140,14 @@ function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
                 description: formData.description,
                 projectId: formData.projectId ?? null,
                 principalId: formData.principalId,
-                startTime: formData.startTime?.format(dateFormat) ?? null,
-                endTime: formData.endTime?.format(dateFormat) ?? null,
+                startTime: pickerTimeToIso(formData.startTime),
+                endTime: pickerTimeToIso(formData.endTime),
             }
             try {
                 if (id) {
-                    await fetchService.patch(`/api/task/${id}`, {
-                        ...payload,
-                        realStartTime:
-                            formData.realStartTime?.format(dateFormat) ?? null,
-                        realEndTime:
-                            formData.realEndTime?.format(dateFormat) ?? null,
-                    })
+                    await fetchService.patch(`/api/tasks/${id}`, payload)
                 } else {
-                    await fetchService.post('/api/task', payload)
+                    await fetchService.post('/api/tasks', payload)
                 }
             } catch {
                 message.error('保存失败')
@@ -211,6 +227,7 @@ function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
                 </Form.Item>
                 <Form.Item name="projectId" label="所属项目">
                     <Select
+                        allowClear
                         placeholder="请选择所属项目"
                         options={projectOptions}
                     ></Select>
@@ -221,24 +238,31 @@ function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
                     rules={[{ required: true, message: '请选择负责人' }]}
                 >
                     <Select
+                        allowClear
                         placeholder="请选择负责人"
                         options={userOptions}
                     ></Select>
                 </Form.Item>
                 {id && (
-                    <Form.Item name="status" label="状态">
+                    <Form.Item label="状态">
                         <Tag color={status?.color}>{status?.label}</Tag>
                     </Form.Item>
                 )}
+                <Form.Item label="提示">
+                    <p className="text-gray-500">
+                        时间统一按北京时间填写和显示。
+                    </p>
+                </Form.Item>
+
                 <Form.Item
                     name="startTime"
                     label="计划开始时间"
                     rules={[{ required: true, message: '请选择计划开始时间' }]}
                 >
                     <DatePicker
-                        format={dateFormat}
+                        showTime
+                        format={dateTimeFormat}
                         placeholder="请选择计划开始时间"
-                        disabled={!!id}
                     />
                 </Form.Item>
                 <Form.Item
@@ -255,7 +279,14 @@ function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
                                     return Promise.resolve()
                                 }
 
-                                if (endTime.isBefore(startTime, 'day')) {
+                                if (
+                                    new Date(
+                                        pickerTimeToIso(endTime),
+                                    ).getTime() <
+                                    new Date(
+                                        pickerTimeToIso(startTime),
+                                    ).getTime()
+                                ) {
                                     return Promise.reject(
                                         new Error(
                                             '计划结束时间不能早于计划开始时间',
@@ -269,58 +300,23 @@ function TaskForm({ id, formOpen, onClose, onSaved }: TaskFormProps) {
                     ]}
                 >
                     <DatePicker
-                        format={dateFormat}
+                        showTime
+                        format={dateTimeFormat}
                         placeholder="请选择计划结束时间"
-                        disabled={!!id}
                     />
                 </Form.Item>
                 {id && (
                     <>
-                        <Form.Item name="realStartTime" label="实际开始时间">
-                            <DatePicker
-                                format={dateFormat}
-                                placeholder="请选择实际开始时间"
-                            />
+                        <Form.Item label="实际开始时间">
+                            <span>
+                                {formatBeijingTime(detail?.realStartTime)}
+                            </span>
                         </Form.Item>
-                        <Form.Item
-                            name="realEndTime"
-                            label="实际结束时间"
-                            dependencies={['realStartTime']}
-                            rules={[
-                                ({ getFieldValue }) => ({
-                                    validator(_, endTime) {
-                                        const startTime =
-                                            getFieldValue('realStartTime')
-                                        if (!endTime) {
-                                            return Promise.resolve()
-                                        }
 
-                                        if (!startTime) {
-                                            return Promise.reject(
-                                                new Error(
-                                                    '请先填写实际开始时间',
-                                                ),
-                                            )
-                                        }
-
-                                        if (
-                                            endTime.isBefore(startTime, 'day')
-                                        ) {
-                                            return Promise.reject(
-                                                new Error(
-                                                    '实际结束时间不能早于实际开始时间',
-                                                ),
-                                            )
-                                        }
-                                        return Promise.resolve()
-                                    },
-                                }),
-                            ]}
-                        >
-                            <DatePicker
-                                format={dateFormat}
-                                placeholder="请选择实际结束时间"
-                            />
+                        <Form.Item label="实际结束时间">
+                            <span>
+                                {formatBeijingTime(detail?.realEndTime)}
+                            </span>
                         </Form.Item>
                     </>
                 )}

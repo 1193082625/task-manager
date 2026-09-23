@@ -3,6 +3,7 @@ import Loading from '@/components/Loading'
 import { dateFormat, STAGE, STATUS } from '@/constant'
 import { useUsers } from '@/hooks/useUsers'
 import type { ProjectDetail } from '@/types/project.type'
+import { formatBeijingTime } from '@/utils/date-time'
 import { useQuery } from '@tanstack/react-query'
 import {
     Drawer,
@@ -57,10 +58,6 @@ function ProjectForm({
         console.log('切换负责人', principalId)
     }
 
-    const handleChangeMembers = (memberIds: string[]) => {
-        console.log('切换成员', memberIds)
-    }
-
     const {
         data: projectDetail,
         isPending,
@@ -70,7 +67,7 @@ function ProjectForm({
         enabled: formOpen && !!projectId,
         queryFn: async ({ signal }) => {
             const result = await fetchService.get<ProjectDetail>(
-                `/api/project/${projectId}`,
+                `/api/projects/${projectId}`,
                 { signal },
             )
 
@@ -117,12 +114,6 @@ function ProjectForm({
                 endTime: projectDetail.endTime
                     ? dayjs(projectDetail.endTime)
                     : null,
-                realStartTime: projectDetail.realStartTime
-                    ? dayjs(projectDetail.realStartTime)
-                    : null,
-                realEndTime: projectDetail.realEndTime
-                    ? dayjs(projectDetail.realEndTime)
-                    : null,
             })
         }
 
@@ -146,19 +137,16 @@ function ProjectForm({
                 principalId: formData.principalId,
                 startTime: formData.startTime?.format(dateFormat) ?? null,
                 endTime: formData.endTime?.format(dateFormat) ?? null,
-                memberIds: formData.memberIds ?? [],
+                // memberIds: formData.memberIds ?? [],
             }
             try {
                 if (projectId) {
-                    await fetchService.patch(`/api/project/${projectId}`, {
-                        ...payload,
-                        realStartTime:
-                            formData.realStartTime?.format(dateFormat) ?? null,
-                        realEndTime:
-                            formData.realEndTime?.format(dateFormat) ?? null,
-                    })
+                    await fetchService.patch(
+                        `/api/projects/${projectId}`,
+                        payload,
+                    )
                 } else {
-                    await fetchService.post('/api/project', payload)
+                    await fetchService.post('/api/projects', payload)
                 }
             } catch {
                 message.error('保存失败')
@@ -239,15 +227,6 @@ function ProjectForm({
                         options={userOptions}
                     ></Select>
                 </Form.Item>
-                <Form.Item name="memberIds" label="项目成员">
-                    <Select
-                        mode="multiple"
-                        allowClear
-                        placeholder="请选择项目成员"
-                        onChange={handleChangeMembers}
-                        options={userOptions}
-                    ></Select>
-                </Form.Item>
                 {projectId && (
                     <>
                         <Form.Item name="stage" label="阶段">
@@ -308,53 +287,21 @@ function ProjectForm({
                 </Form.Item>
                 {projectId && (
                     <>
-                        <Form.Item name="realStartTime" label="实际开始时间">
-                            <DatePicker
-                                format={dateFormat}
-                                placeholder="请选择实际开始时间"
-                            />
+                        <Form.Item label="实际开始时间">
+                            <span>
+                                {formatBeijingTime(
+                                    projectDetail?.realStartTime,
+                                )}
+                            </span>
                         </Form.Item>
-                        <Form.Item
-                            name="realEndTime"
-                            label="实际结束时间"
-                            dependencies={['realStartTime']}
-                            rules={[
-                                ({ getFieldValue }) => ({
-                                    validator(_, endTime) {
-                                        const startTime =
-                                            getFieldValue('realStartTime')
-                                        if (!endTime) {
-                                            return Promise.resolve()
-                                        }
-
-                                        if (!startTime) {
-                                            return Promise.reject(
-                                                new Error(
-                                                    '请先填写实际开始时间',
-                                                ),
-                                            )
-                                        }
-
-                                        if (
-                                            endTime.isBefore(startTime, 'day')
-                                        ) {
-                                            return Promise.reject(
-                                                new Error(
-                                                    '实际结束时间不能早于实际开始时间',
-                                                ),
-                                            )
-                                        }
-
-                                        return Promise.resolve()
-                                    },
-                                }),
-                            ]}
-                        >
-                            <DatePicker
-                                format={dateFormat}
-                                placeholder="请选择实际结束时间"
-                            />
+                        <Form.Item label="实际结束时间">
+                            <span>
+                                {formatBeijingTime(projectDetail?.realEndTime)}
+                            </span>
                         </Form.Item>
+                        <p className="text-gray-500">
+                            实际时间由项目下任务自动统计，不支持手动修改
+                        </p>
                     </>
                 )}
             </Form>

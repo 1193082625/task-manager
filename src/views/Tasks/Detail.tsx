@@ -1,8 +1,12 @@
 import fetchService from '@/api/request'
 import Loading from '@/components/Loading'
+import { STATUS } from '@/constant'
+import { useProjects } from '@/hooks/useProjects'
+import { useUsers } from '@/hooks/useUsers'
 import type { Task } from '@/types/task.type'
+import { formatBeijingTime } from '@/utils/date-time'
 import { useQuery } from '@tanstack/react-query'
-import { Drawer } from 'antd'
+import { Drawer, Tag } from 'antd'
 
 type TaskDetailProps = {
     id: string | undefined
@@ -19,7 +23,7 @@ function TaskDetail({ id, detailOpen, onClose }: TaskDetailProps) {
             if (!id) {
                 throw new Error('缺少任务 ID')
             }
-            const result = await fetchService.get<Task>(`/api/task/${id}`, {
+            const result = await fetchService.get<Task>(`/api/tasks/${id}`, {
                 signal,
             })
 
@@ -33,11 +37,10 @@ function TaskDetail({ id, detailOpen, onClose }: TaskDetailProps) {
     })
     const title = data?.name ?? '任务详情'
 
-    // const { data: userResult = [] } = useUsers()
-    // const userList = userResult.map((user) => ({
-    //     value: user.id,
-    //     label: user.name,
-    // }))
+    const { data: users } = useUsers()
+    const { data: projects } = useProjects()
+
+    const status = STATUS.find((status) => status.value === data?.status)
 
     return (
         <Drawer
@@ -59,41 +62,45 @@ function TaskDetail({ id, detailOpen, onClose }: TaskDetailProps) {
                         <span className="font-bold">任务介绍：</span>
                         <span>{data?.description}</span>
                     </div>
-                    {/* <div>
+                    <div>
+                        <span className="font-bold">当前状态：</span>
+                        <Tag color={status?.color}>{status?.label}</Tag>
+                    </div>
+                    <div>
                         <span className="font-bold">所属项目：</span>
                         <span>
                             {
-                                USER_ROLES.find(
-                                    (role) => role.value === data.role,
-                                )?.label
+                                projects?.find(
+                                    (project) => project.id === data.projectId,
+                                )?.name
                             }
                         </span>
-                    </div> */}
-                    {/* <div>
+                    </div>
+                    <div>
                         <span className="font-bold">负责人：</span>
                         <span>
                             {
-                                userList.find(
+                                users?.find(
                                     (user) => user.id === data.principalId,
-                                )?.label
+                                )?.name
                             }
                         </span>
-                    </div> */}
+                    </div>
                     <div>
                         <span className="font-bold">计划开始时间：</span>
-                        <span>{data.startTime}</span>
+                        <span>{formatBeijingTime(data.startTime)}</span>
                     </div>
                     <div>
                         <span className="font-bold">计划结束时间：</span>
-                        <span>{data.endTime}</span>
+                        <span>{formatBeijingTime(data.endTime)}</span>
                     </div>
                     <div>
                         <span className="font-bold">真实开始时间：</span>
-                        <span>{data.realStartTime}</span>
+                        <span>{formatBeijingTime(data.realStartTime)}</span>
                     </div>
                     <div>
                         <span className="font-bold">真实结束时间：</span>
-                        <span>{data.realEndTime}</span>
+                        <span>{formatBeijingTime(data.realEndTime)}</span>
                     </div>
                 </div>
             )}

@@ -3,6 +3,7 @@ import Loading from '@/components/Loading'
 import { STAGE, STATUS } from '@/constant'
 import { useUsers } from '@/hooks/useUsers'
 import type { ProjectDetail as ProjectDetailData } from '@/types/project.type'
+import { formatBeijingTime } from '@/utils/date-time'
 import { useQuery } from '@tanstack/react-query'
 import { Drawer, Tag } from 'antd'
 
@@ -22,7 +23,7 @@ function ProjectDetail({ projectId, detailOpen, onClose }: ProjectDetailProps) {
                 throw new Error('缺少项目 ID')
             }
             const result = await fetchService.get<ProjectDetailData>(
-                `/api/project/${projectId}`,
+                `/api/projects/${projectId}`,
                 { signal },
             )
 
@@ -100,11 +101,11 @@ function ProjectDetail({ projectId, detailOpen, onClose }: ProjectDetailProps) {
                     </div>
                     <div>
                         <span className="font-bold">真实开始时间：</span>
-                        <span>{data.realStartTime}</span>
+                        <span>{formatBeijingTime(data.realStartTime)}</span>
                     </div>
                     <div>
                         <span className="font-bold">真实结束时间：</span>
-                        <span>{data.realEndTime}</span>
+                        <span>{formatBeijingTime(data.realEndTime)}</span>
                     </div>
                 </div>
             )}

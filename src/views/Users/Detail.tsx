@@ -20,7 +20,7 @@ function UserDetail({ id, detailOpen, onClose }: UserDetailProps) {
             if (!id) {
                 throw new Error('缺少用户 ID')
             }
-            const result = await fetchService.get<User>(`/api/user/${id}`, {
+            const result = await fetchService.get<User>(`/api/users/${id}`, {
                 signal,
             })
 

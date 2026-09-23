@@ -1,7 +1,7 @@
 import fetchService from '@/api/request'
 import Loading from '@/components/Loading'
 import { USER_ROLES } from '@/constant'
-import type { CreateUser, User } from '@/types/user.type'
+import type { User } from '@/types/user.type'
 import { useQuery } from '@tanstack/react-query'
 import { Drawer, Form, Input, Select, Space, Button, message } from 'antd'
 import { useEffect, useRef, useState } from 'react'
@@ -13,14 +13,14 @@ type UserFormProps = {
     formOpen: boolean
 }
 
+type UserFormValues = Omit<User, 'id'> & {
+    password?: string
+}
+
 function UserForm({ id, formOpen, onClose, onSaved }: UserFormProps) {
-    const [form] = Form.useForm()
+    const [form] = Form.useForm<UserFormValues>()
     const [isSaving, setIsSaving] = useState(false)
     const savingRef = useRef(false)
-
-    const handleFinish = (data: CreateUser) => {
-        console.log('添加用户', data)
-    }
 
     const handleRequestClose = () => {
         if (savingRef.current) return
@@ -36,7 +36,7 @@ function UserForm({ id, formOpen, onClose, onSaved }: UserFormProps) {
         queryKey: ['user-detail', id],
         enabled: formOpen && !!id,
         queryFn: async ({ signal }) => {
-            const result = await fetchService.get<User>(`/api/user/${id}`, {
+            const result = await fetchService.get<User>(`/api/users/${id}`, {
                 signal,
             })
 
@@ -93,9 +93,9 @@ function UserForm({ id, formOpen, onClose, onSaved }: UserFormProps) {
 
             try {
                 if (id) {
-                    await fetchService.patch(`/api/user/${id}`, formData)
+                    await fetchService.patch(`/api/users/${id}`, formData)
                 } else {
-                    await fetchService.post('/api/user', formData)
+                    await fetchService.post('/api/users', formData)
                 }
             } catch {
                 message.error('保存失败')
@@ -148,14 +148,14 @@ function UserForm({ id, formOpen, onClose, onSaved }: UserFormProps) {
             <Form
                 form={form}
                 name="user-form"
-                onFinish={handleFinish}
+                onFinish={handleSave}
                 disabled={isSaving || (!!id && (isPending || !!error))}
                 labelCol={{ span: 5 }}
             >
                 <Form.Item
                     name="name"
                     label="姓名"
-                    rules={[{ required: true }]}
+                    rules={[{ required: true, message: '请输入成员姓名' }]}
                 >
                     <Input placeholder="请输入成员姓名" disabled={!!id} />
                 </Form.Item>
@@ -170,14 +170,35 @@ function UserForm({ id, formOpen, onClose, onSaved }: UserFormProps) {
                         },
                     ]}
                 >
-                    <Input placeholder="请输入成员姓名" maxLength={11} />
+                    <Input placeholder="请输入手机号" maxLength={11} />
                 </Form.Item>
-                <Form.Item name="role" label="角色">
+                <Form.Item
+                    name="role"
+                    label="角色"
+                    rules={[{ required: true, message: '请选择成员角色' }]}
+                >
                     <Select
                         placeholder="请选择成员角色"
                         options={USER_ROLES}
                     ></Select>
                 </Form.Item>
+                {!id && (
+                    <Form.Item
+                        name="password"
+                        label="初始密码"
+                        preserve={false}
+                        rules={[
+                            { required: true, message: '请输入初始密码' },
+                            { min: 8, message: '密码不能少于 8 个字符' },
+                            { max: 128, message: '密码不能超过 128 个字符' },
+                        ]}
+                    >
+                        <Input.Password
+                            placeholder="请输入 8～ 128 位初始密码"
+                            autoComplete="new-password"
+                        />
+                    </Form.Item>
+                )}
             </Form>
         </Drawer>
     )

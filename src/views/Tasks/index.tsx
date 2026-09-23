@@ -1,4 +1,4 @@
-import fetchService from '@/api/request'
+import fetchService, { HttpError } from '@/api/request'
 import {
     Button,
     DatePicker,
@@ -13,7 +13,7 @@ import {
     type GetProp,
     type TableProps,
 } from 'antd'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ListResponse, TableParams } from '@/types/task.type'
 import { PlusOutlined } from '@ant-design/icons'
@@ -23,6 +23,11 @@ import { STATUS } from '@/constant'
 import type { Dayjs } from 'dayjs'
 import TaskDetail from './Detail'
 import TaskForm from './Form'
+import { useProjects } from '@/hooks/useProjects'
+import { formatBeijingTime } from '@/utils/date-time'
+import { useTaskStatus } from '@/hooks/useTaskStatus'
+import type { TaskStatus } from '@/api/tasks'
+import { TASK_STATUS_ACTIONS } from './status-actions'
 
 type TaskSearchValues = {
     name?: string
@@ -86,8 +91,16 @@ function Tasks() {
         },
     })
     const queryClient = useQueryClient()
+    const taskStatusMutation = useTaskStatus()
+    const changingStatusRef = useRef(false)
 
-    const { data: users } = useUsers()
+    const { data: users = [], isFetching: isUserFetching } = useUsers()
+    const userList = users.map((user) => ({
+        value: user.id,
+        label: user.name,
+    }))
+
+    const { data: projects } = useProjects()
 
     const columns: ColumnsType<TaskItem> = [
         {
@@ -101,6 +114,12 @@ function Tasks() {
             title: '所属项目',
             dataIndex: 'projectId',
             width: 180,
+            render: (value: string) => {
+                return (
+                    projects?.find((project) => project.id === value)?.name ??
+                    '--'
+                )
+            },
         },
         {
             title: '负责人',
@@ -120,6 +139,7 @@ function Tasks() {
                     ? (tableParams.sortOrder ?? null)
                     : null,
             width: 160,
+            render: (value: string | null) => formatBeijingTime(value),
         },
         {
             title: '计划结束时间',
@@ -131,6 +151,7 @@ function Tasks() {
                     ? (tableParams.sortOrder ?? null)
                     : null,
             width: 160,
+            render: (value: string | null) => formatBeijingTime(value),
         },
         {
             title: '实际开始时间',
@@ -142,6 +163,7 @@ function Tasks() {
                     ? (tableParams.sortOrder ?? null)
                     : null,
             width: 160,
+            render: (value: string | null) => formatBeijingTime(value),
         },
         {
             title: '实际结束时间',
@@ -153,6 +175,7 @@ function Tasks() {
                     ? (tableParams.sortOrder ?? null)
                     : null,
             width: 160,
+            render: (value: string | null) => formatBeijingTime(value),
         },
         {
             title: '状态',
@@ -170,6 +193,34 @@ function Tasks() {
             fixed: 'end',
             render: (_, record: TaskItem) => (
                 <div className="flex flex-wrap">
+                    {TASK_STATUS_ACTIONS[record.status].map((action) => (
+                        <Popconfirm
+                            key={action.status}
+                            title={`${action.label}任务`}
+                            description={`确认${action.label}任务「${record.name}」 吗？`}
+                            disabled={taskStatusMutation.isPending}
+                            onConfirm={() =>
+                                handleChangeStatus(record, action.status)
+                            }
+                            okText="确认"
+                            cancelText="取消"
+                        >
+                            <Button
+                                type="link"
+                                danger={action.danger}
+                                disabled={taskStatusMutation.isPending}
+                                loading={
+                                    taskStatusMutation.isPending &&
+                                    taskStatusMutation.variables?.id ===
+                                        record.id &&
+                                    taskStatusMutation.variables?.status ===
+                                        action.status
+                                }
+                            >
+                                {action.label}
+                            </Button>
+                        </Popconfirm>
+                    ))}
                     <Button type="link" onClick={() => handleDetail(record.id)}>
                         详情
                     </Button>
@@ -177,7 +228,7 @@ function Tasks() {
                         编辑
                     </Button>
                     <Popconfirm
-                        title="删除成员"
+                        title="删除任务"
                         description={`确认删除任务-${record.name}吗？`}
                         onConfirm={() => handleDelete(record.id)}
                         okText="删除"
@@ -191,6 +242,42 @@ function Tasks() {
             ),
         },
     ]
+
+    const handleChangeStatus = async (task: TaskItem, status: TaskStatus) => {
+        if (changingStatusRef.current) return
+
+        changingStatusRef.current = true
+
+        try {
+            await taskStatusMutation.mutateAsync({
+                id: task.id,
+                status,
+            })
+
+            message.success('任务状态已更新')
+        } catch (error) {
+            if (error instanceof HttpError) {
+                // 这些状态已由请求拦截器统一处理
+                if ([400, 401, 500].includes(error.status)) return
+
+                if (error.status === 409) {
+                    message.warning(
+                        '任务状态已变化或当前操作不允许，请刷新后重试',
+                    )
+                    return
+                }
+
+                if (error.status === 404) {
+                    message.error('任务不存在，请刷新列表')
+                    return
+                }
+            }
+
+            message.error('修改任务状态失败，请稍后重试')
+        } finally {
+            changingStatusRef.current = false
+        }
+    }
 
     const toURLSearchParams = (record: Record<string, unknown>) => {
         const params = new URLSearchParams()
@@ -293,9 +380,10 @@ function Tasks() {
 
     const handleDelete = async (id: string) => {
         try {
-            await fetchService.delete(`/api/task/${id}`)
+            await fetchService.delete(`/api/tasks/${id}`)
         } catch {
             message.error('删除失败')
+            return
         }
         message.success('删除成功')
 
@@ -312,9 +400,17 @@ function Tasks() {
             }))
         }
 
-        await queryClient.invalidateQueries({
-            queryKey: ['tasks'],
-        })
+        await Promise.all([
+            queryClient.invalidateQueries({
+                queryKey: ['tasks'],
+            }),
+            queryClient.invalidateQueries({
+                queryKey: ['projects'],
+            }),
+            queryClient.invalidateQueries({
+                queryKey: ['project-detail'],
+            }),
+        ])
     }
 
     const handleDetailClose = () => {
@@ -333,6 +429,16 @@ function Tasks() {
     const handleFormSaved = async () => {
         await Promise.all([
             queryClient.invalidateQueries(
+                {
+                    queryKey: ['projects'],
+                },
+                { throwOnError: true },
+            ),
+            queryClient.invalidateQueries(
+                { queryKey: ['project-detail'] },
+                { throwOnError: true },
+            ),
+            queryClient.invalidateQueries(
                 { queryKey: ['tasks'] },
                 { throwOnError: true },
             ),
@@ -350,12 +456,6 @@ function Tasks() {
         ])
     }
 
-    const { data: userResult = [], isFetching: isUserFetching } = useUsers()
-    const userList = userResult.map((user) => ({
-        value: user.id,
-        label: user.name,
-    }))
-
     return (
         <>
             <div className="w-full min-h-full flex flex-col gap-[20px]">
@@ -366,7 +466,7 @@ function Tasks() {
                         icon={<PlusOutlined />}
                         onClick={handleCreateTask}
                     >
-                        添加成员
+                        添加任务
                     </Button>
                 </div>
                 <Form<TaskSearchValues>

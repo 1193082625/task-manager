@@ -1,10 +1,5 @@
 import type { GetProp, TablePaginationConfig, TableProps } from 'antd'
 
-export type UserInfo = {
-    name: string
-    phone: string
-}
-
 export interface User {
     id: string
     name: string
@@ -12,7 +7,13 @@ export interface User {
     role: string
 }
 
-export type CreateUser = Omit<User, 'id'>
+export type UserInfo = User
+
+export type CreateUser = Omit<User, 'id'> & {
+    password: string
+}
+
+export type UpdateUser = Omit<User, 'id'>
 
 export interface TableParams {
     pagination?: TablePaginationConfig

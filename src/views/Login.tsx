@@ -7,12 +7,13 @@ import type { UserInfo } from '@/types/user.type'
 import { useLocation } from 'react-router'
 
 type LoginForm = {
-    username: string
+    phone: string
     password: string
 }
 
 interface LoginResponse {
     token: string
+    user: UserInfo
 }
 
 function Login() {
@@ -34,20 +35,15 @@ function Login() {
 
         try {
             const result = await fetchService.post<LoginResponse>(
-                '/api/login',
+                '/api/auth/login',
                 data,
             )
-            if (!result?.token) {
-                throw new Error('登录响应中缺少 token')
+            if (!result?.token || !result.user) {
+                throw new Error('登录响应不完整')
             }
 
             setToken(result.token)
-            const userInfo = await fetchService.get<UserInfo>('/api/userInfo')
-            if (!userInfo) {
-                throw new Error('未获取到用户信息')
-            }
-
-            setUserInfo(userInfo)
+            setUserInfo(result.user)
 
             const from = location.state?.from
 
@@ -58,8 +54,6 @@ function Login() {
                 from !== '/login'
                     ? from
                     : '/'
-
-            console.log(444, target)
 
             router.navigate(target, { replace: true })
         } catch (error) {
@@ -85,18 +79,24 @@ function Login() {
                 >
                     <input
                         className="rounded border border-gray-300 px-3 py-2"
-                        placeholder="请输入用户名"
+                        placeholder="请输入手机号"
                         autoComplete="username"
-                        type="text"
-                        {...register('username', {
-                            required: '请输入用户名',
-                            maxLength: {
-                                value: 60,
-                                message: '用户名不能超过 60 个字符',
+                        inputMode="numeric"
+                        maxLength={11}
+                        type="tel"
+                        {...register('phone', {
+                            required: '请输入手机号',
+                            pattern: {
+                                value: /^1[3-9]\d{9}$/,
+                                message: '请输入正确的手机号',
                             },
                         })}
                     />
-                    {errors.username && <p>{errors.username.message}</p>}
+                    {errors.phone && (
+                        <p role="alert" className="text-red-500">
+                            {errors.phone.message}
+                        </p>
+                    )}
 
                     <input
                         className="rounded border border-gray-300 px-3 py-2"

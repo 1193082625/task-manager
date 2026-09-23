@@ -26,6 +26,8 @@ import ProjectDetail from './Detail'
 import { PlusOutlined } from '@ant-design/icons'
 import { useUsers } from '@/hooks/useUsers'
 import ProjectForm from './Form'
+import TaskForm from '../Tasks/Form'
+import { formatBeijingTime } from '@/utils/date-time'
 
 type ProjectSearchValues = {
     name?: string
@@ -102,6 +104,7 @@ function Projects() {
     const [form] = Form.useForm()
     const [detailOpen, setDetailOpen] = useState(false)
     const [formOpen, setFormOpen] = useState(false)
+    const [addTaskFormOpen, setAddTaskFormOpen] = useState(false)
     const [activeProjectId, setActiveProjectId] = useState<string | undefined>()
     const [editProjectId, setEditProjectId] = useState<string>()
     const [tableParams, setTableParams] = useState<TableParams>({
@@ -162,6 +165,7 @@ function Projects() {
                     ? (tableParams.sortOrder ?? null)
                     : null,
             width: 160,
+            render: (value: string | null) => formatBeijingTime(value),
         },
         {
             title: '实际结束时间',
@@ -173,6 +177,7 @@ function Projects() {
                     ? (tableParams.sortOrder ?? null)
                     : null,
             width: 160,
+            render: (value: string | null) => formatBeijingTime(value),
         },
         {
             title: '任务数',
@@ -182,6 +187,10 @@ function Projects() {
             render: (value: number, record: ProjectItem) => {
                 return `${record.completedTaskCount} / ${value}`
             },
+            sortOrder:
+                tableParams.sortField === 'taskCount'
+                    ? (tableParams.sortOrder ?? null)
+                    : null,
         },
         {
             title: '阶段',
@@ -208,6 +217,12 @@ function Projects() {
             fixed: 'end',
             render: (_, record: ProjectItem) => (
                 <div className="flex flex-wrap">
+                    <Button
+                        type="link"
+                        onClick={() => handleAddTask(record.id)}
+                    >
+                        添加任务
+                    </Button>
                     <Button type="link" onClick={() => handleDetail(record.id)}>
                         详情
                     </Button>
@@ -257,6 +272,11 @@ function Projects() {
         value: user.id,
         label: user.name,
     }))
+
+    const handleAddTask = (id: string) => {
+        setEditProjectId(id)
+        setAddTaskFormOpen(true)
+    }
 
     const handleTableChange: TableProps<ProjectItem>['onChange'] = (
         pagination,
@@ -316,7 +336,7 @@ function Projects() {
 
     const handleDelete = async (id: string) => {
         try {
-            await fetchService.delete(`/api/project/${id}`)
+            await fetchService.delete(`/api/projects/${id}`)
         } catch {
             message.error('删除失败')
         }
@@ -353,6 +373,11 @@ function Projects() {
         setFormOpen(false)
     }
 
+    const handleAddTaskFormClose = async () => {
+        setEditProjectId(undefined)
+        setAddTaskFormOpen(false)
+    }
+
     const handleFormSaved = async () => {
         await Promise.all([
             queryClient.invalidateQueries(
@@ -370,6 +395,25 @@ function Projects() {
                       ),
                   ]
                 : []),
+        ])
+    }
+
+    const handleAddTaskFormSaved = async () => {
+        await Promise.all([
+            queryClient.invalidateQueries(
+                {
+                    queryKey: ['projects'],
+                },
+                { throwOnError: true },
+            ),
+            queryClient.invalidateQueries(
+                { queryKey: ['project-detail'] },
+                { throwOnError: true },
+            ),
+            queryClient.invalidateQueries(
+                { queryKey: ['tasks'] },
+                { throwOnError: true },
+            ),
         ])
     }
 
@@ -485,6 +529,12 @@ function Projects() {
                 formOpen={formOpen}
                 onClose={handleFormClose}
                 onSaved={handleFormSaved}
+            />
+            <TaskForm
+                projectId={editProjectId}
+                formOpen={addTaskFormOpen}
+                onClose={handleAddTaskFormClose}
+                onSaved={handleAddTaskFormSaved}
             />
         </>
     )

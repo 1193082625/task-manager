@@ -1,7 +1,7 @@
 import type { ProjectDetail, ProjectItem } from '@/types/project.type'
 import type { CreateTask, Task, TaskItem } from '@/types/task.type'
 import type { CreateUser, User } from '@/types/user.type'
-import { http, HttpResponse } from 'msw'
+import { http, HttpResponse, passthrough } from 'msw'
 
 type LoginBody = {
     username: string
@@ -239,6 +239,15 @@ const userList: User[] = [
 ]
 
 export const handlers = [
+    // 用户接口访问真实后端
+    http.all('/api/*', () => passthrough()),
+    http.all('/api/users', () => passthrough()),
+    http.all('/api/users/*', () => passthrough()),
+    http.all('/api/projects', () => passthrough()),
+    http.all('/api/projects/*', () => passthrough()),
+    http.all('/api/tasks', () => passthrough()),
+    http.all('/api/tasks/*', () => passthrough()),
+
     // 模拟 get 请求
     http.get('/api/userInfo', async ({ request }) => {
         console.log('mock handler', request)
@@ -273,7 +282,7 @@ export const handlers = [
     http.get('/api/users/all', () => {
         return HttpResponse.json(userList)
     }),
-    http.get<{ id: string }>('/api/user/:id', async ({ request, params }) => {
+    http.get<{ id: string }>('/api/users/:id', async ({ request, params }) => {
         const user = userList.find((user) => user.id === params.id)
         if (!user) {
             throw new Error('获取用户失败')
@@ -281,7 +290,7 @@ export const handlers = [
         console.log('mock handler', request)
         return HttpResponse.json(user)
     }),
-    http.post<never, CreateUser>('/api/user', async ({ request }) => {
+    http.post<never, CreateUser>('/api/users', async ({ request }) => {
         const userData = await request.json()
         const newUser = {
             ...userData,
@@ -291,7 +300,7 @@ export const handlers = [
         return HttpResponse.json(newUser)
     }),
     http.patch<{ id: string }, User>(
-        '/api/user/:id',
+        '/api/users/:id',
         async ({ request, params }) => {
             const userIndex = userList.findIndex(
                 (user) => user.id === params.id,
@@ -310,7 +319,7 @@ export const handlers = [
             })
         },
     ),
-    http.delete<{ id: string }>('/api/user/:id', ({ params }) => {
+    http.delete<{ id: string }>('/api/users/:id', ({ params }) => {
         const userIndex = userList.findIndex((user) => user.id === params.id)
         if (userIndex === -1) {
             throw new Error('用户不存在')
@@ -408,7 +417,7 @@ export const handlers = [
     http.get('/api/projects/all', () => {
         return HttpResponse.json(projectList)
     }),
-    http.get<{ id: string }>('/api/project/:id', ({ params }) => {
+    http.get<{ id: string }>('/api/projects/:id', ({ params }) => {
         const project = projectList.find((item) => item.id === params.id)
         if (!project) {
             return HttpResponse.json({ message: '项目不存在' }, { status: 404 })
@@ -429,18 +438,21 @@ export const handlers = [
 
         return HttpResponse.json(detail)
     }),
-    http.post<never, CreateProjectItem>('/api/project', async ({ request }) => {
-        const data = await request.json()
-        const projectId = (projectList.length + 1).toString()
-        const newProject = {
-            id: projectId,
-            ...data,
-        }
-        projectList.push(newProject)
-        return HttpResponse.json(newProject)
-    }),
+    http.post<never, CreateProjectItem>(
+        '/api/projects',
+        async ({ request }) => {
+            const data = await request.json()
+            const projectId = (projectList.length + 1).toString()
+            const newProject = {
+                id: projectId,
+                ...data,
+            }
+            projectList.push(newProject)
+            return HttpResponse.json(newProject)
+        },
+    ),
     http.patch<{ id: string }, UpdateProjectBody>(
-        '/api/project/:id',
+        '/api/projects/:id',
         async ({ request, params }) => {
             const index = projectList.findIndex(
                 (project) => project.id === params.id,
@@ -464,7 +476,7 @@ export const handlers = [
             })
         },
     ),
-    http.delete<{ id: string }>('/api/project/:id', async ({ params }) => {
+    http.delete<{ id: string }>('/api/projects/:id', async ({ params }) => {
         const index = projectList.findIndex(
             (project) => project.id === params.id,
         )
@@ -483,14 +495,14 @@ export const handlers = [
             total: taskList.length,
         })
     }),
-    http.get<{ id: string }>('/api/task/:id', async ({ params }) => {
+    http.get<{ id: string }>('/api/tasks/:id', async ({ params }) => {
         const task = taskList.find((task) => task.id === params.id)
         if (!task) {
             throw new Error('任务不存在')
         }
         return HttpResponse.json(task)
     }),
-    http.post<never, CreateTask>('/api/task', async ({ request }) => {
+    http.post<never, CreateTask>('/api/tasks', async ({ request }) => {
         const data = await request.json()
         const taskId = (taskList.length + 1).toString()
         const newTask = {
@@ -501,7 +513,7 @@ export const handlers = [
         return HttpResponse.json(newTask)
     }),
     http.patch<{ id: string }, Task>(
-        '/api/task/:id',
+        '/api/tasks/:id',
         async ({ request, params }) => {
             const data = await request.json()
             const taskIndex = taskList.findIndex(
@@ -524,7 +536,7 @@ export const handlers = [
             })
         },
     ),
-    http.delete<{ id: string }>('/api/task/:id', async ({ params }) => {
+    http.delete<{ id: string }>('/api/tasks/:id', async ({ params }) => {
         const taskIndex = taskList.findIndex((task) => task.id === params.id)
         if (taskIndex === -1) {
             return HttpResponse.json({ message: '项目不存在' }, { status: 404 })
