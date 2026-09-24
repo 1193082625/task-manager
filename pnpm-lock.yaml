@@ -29,9 +29,6 @@ importers:
       react-dom:
         specifier: ^19.2.8
         version: 19.3.0(react@19.3.0)
-      react-hook-form:
-        specifier: ^7.88.0
-        version: 7.88.0(react@19.3.0)
       react-router:
         specifier: ^8.4.0
         version: 8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

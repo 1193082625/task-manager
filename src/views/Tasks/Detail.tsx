@@ -7,6 +7,7 @@ import type { Task } from '@/types/task.type'
 import { formatBeijingTime } from '@/utils/date-time'
 import { useQuery } from '@tanstack/react-query'
 import { Drawer, Tag } from 'antd'
+import TaskComments from './Comments'
 
 type TaskDetailProps = {
     id: string | undefined
@@ -47,6 +48,7 @@ function TaskDetail({ id, detailOpen, onClose }: TaskDetailProps) {
             title={title}
             closable={{ 'aria-label': 'Close Button' }}
             onClose={onClose}
+            size={800}
             open={detailOpen}
         >
             {isFetching && <Loading />}
@@ -102,6 +104,8 @@ function TaskDetail({ id, detailOpen, onClose }: TaskDetailProps) {
                         <span className="font-bold">真实结束时间：</span>
                         <span>{formatBeijingTime(data.realEndTime)}</span>
                     </div>
+
+                    <TaskComments taskId={data.id} />
                 </div>
             )}
         </Drawer>

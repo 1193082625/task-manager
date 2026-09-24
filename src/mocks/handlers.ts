@@ -1,6 +1,6 @@
 import type { ProjectDetail, ProjectItem } from '@/types/project.type'
 import type { CreateTask, Task, TaskItem } from '@/types/task.type'
-import type { CreateUser, User } from '@/types/user.type'
+import type { CreateUser, SystemRole, User } from '@/types/user.type'
 import { http, HttpResponse, passthrough } from 'msw'
 
 type LoginBody = {
@@ -199,42 +199,49 @@ const userList: User[] = [
         name: '张三',
         phone: '15378764444',
         role: 'designer',
+        systemRole: 'ADMIN',
     },
     {
         id: '2',
         name: '张兰',
         phone: '15370000444',
         role: 'developer',
+        systemRole: 'USER',
     },
     {
         id: '3',
         name: '李清',
         phone: '15500000000',
         role: 'tester',
+        systemRole: 'USER',
     },
     {
         id: '4',
         name: '李清',
         phone: '15500000000',
         role: 'tester',
+        systemRole: 'USER',
     },
     {
         id: '5',
         name: '李清',
         phone: '15500000000',
         role: 'tester',
+        systemRole: 'USER',
     },
     {
         id: '6',
         name: '李清',
         phone: '15500000000',
         role: 'tester',
+        systemRole: 'USER',
     },
     {
         id: '7',
         name: '李清',
         phone: '15500000000',
         role: 'tester',
+        systemRole: 'USER',
     },
 ]
 
@@ -293,8 +300,11 @@ export const handlers = [
     http.post<never, CreateUser>('/api/users', async ({ request }) => {
         const userData = await request.json()
         const newUser = {
-            ...userData,
             id: (userList.length + 1).toString(),
+            name: userData.name,
+            phone: userData.phone,
+            role: userData.role,
+            systemRole: 'USER' as SystemRole,
         }
         userList.push(newUser)
         return HttpResponse.json(newUser)

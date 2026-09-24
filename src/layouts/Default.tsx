@@ -23,11 +23,15 @@ function DefaultLayout() {
             name: 'tasks',
             link: '/tasks',
         },
-        {
-            label: '人员管理',
-            name: 'users',
-            link: '/users',
-        },
+        ...(userInfo?.systemRole === 'ADMIN'
+            ? [
+                  {
+                      label: '人员管理',
+                      name: 'users',
+                      link: '/users',
+                  },
+              ]
+            : []),
     ]
 
     const handleLogout = () => {

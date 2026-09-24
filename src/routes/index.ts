@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router'
 import DefaultLayout from '../layouts/Default'
 import { lazy } from 'react'
 import RequireAuth from '@/components/RequireAuth'
+import RequireAdmin from '@/components/RequireAdmin'
 
 const Login = lazy(() => import('@/views/Login'))
 const Dashboard = lazy(() => import('@/views/Dashboard/index'))
@@ -30,8 +31,13 @@ const router = createBrowserRouter([
                         Component: Tasks,
                     },
                     {
-                        path: 'users',
-                        Component: Users,
+                        Component: RequireAdmin,
+                        children: [
+                            {
+                                path: 'users',
+                                Component: Users,
+                            },
+                        ],
                     },
                 ],
             },
