@@ -20,7 +20,7 @@ export interface ProjectItem {
 
 export interface ProjectDetail extends ProjectItem {
     description: string
-    memberIds: string[] // 项目成员, 从 task 列表中自动统计参与人员
+    memberIds: string[] // 任务负责人去重后的参与者 ID，不代表项目权限成员
 }
 
 export interface TableParams {
@@ -39,4 +39,17 @@ export interface TableParams {
 export interface ListResponse {
     list: ProjectItem[]
     total: number
+}
+
+export interface ProjectMember {
+    userId: string
+    name: string
+    role: string
+    isActive: boolean
+    isPrincipal: boolean
+    joinedAt: string
+}
+
+export interface AddProjectMember {
+    userId: string
 }

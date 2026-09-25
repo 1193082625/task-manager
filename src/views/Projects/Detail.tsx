@@ -6,6 +6,7 @@ import type { ProjectDetail as ProjectDetailData } from '@/types/project.type'
 import { formatBeijingTime } from '@/utils/date-time'
 import { useQuery } from '@tanstack/react-query'
 import { Drawer, Tag } from 'antd'
+import ProjectMembers from './Members'
 
 type ProjectDetailProps = {
     projectId: string | undefined
@@ -40,12 +41,6 @@ function ProjectDetail({ projectId, detailOpen, onClose }: ProjectDetailProps) {
     const { data: users = [] } = useUsers()
 
     const principal = users.find((user) => user.id === data?.principalId)
-    const membersName = [
-        ...new Set([
-            principal,
-            ...users.filter((user) => data?.memberIds.includes(user.id)),
-        ]),
-    ].map((user) => user?.name)
 
     const stage = STAGE.find((stage) => stage.value === data?.stage)
     const status = STATUS.find((state) => state.value === data?.status)
@@ -55,6 +50,7 @@ function ProjectDetail({ projectId, detailOpen, onClose }: ProjectDetailProps) {
             closable={{ 'aria-label': 'Close Button' }}
             onClose={onClose}
             open={detailOpen}
+            size={800}
         >
             {isFetching && <Loading />}
 
@@ -73,10 +69,9 @@ function ProjectDetail({ projectId, detailOpen, onClose }: ProjectDetailProps) {
                             {principal?.name + ` (${principal?.phone}) `}
                         </span>
                     </div>
-                    <div>
-                        <span className="font-bold">项目成员：</span>
-                        <span>{membersName.join('、') || '--'}</span>
-                    </div>
+                    {detailOpen && (
+                        <ProjectMembers key={data.id} projectId={data.id} />
+                    )}
                     <div>
                         <span className="font-bold">阶段：</span>
                         <Tag color={stage?.color}>{stage?.label}</Tag>

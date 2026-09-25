@@ -23,6 +23,40 @@ export class HttpError extends Error {
     }
 }
 
+async function readErrorMessage(response: Response): Promise<string> {
+    const fallback = response.statusText || `请求失败 （${response.status}）`
+
+    try {
+        const data: unknown = await response.clone().json()
+
+        if (typeof data === 'string' && data.trim()) {
+            return data
+        }
+
+        if (typeof data === 'object' && data !== null && 'message' in data) {
+            const value = data.message
+            if (typeof value === 'string' && value.trim()) {
+                return value
+            }
+
+            if (Array.isArray(value)) {
+                const message = value.filter(
+                    (item): item is string =>
+                        typeof item === 'string' && item.trim().length > 0,
+                )
+
+                if (message.length > 0) {
+                    return message.join('; ')
+                }
+            }
+        }
+    } catch {
+        // 空响应或非 JSON 响应，使用默认提示
+    }
+
+    return fallback
+}
+
 class FetchService {
     private requestInterceptors: requestInterceptor[] = []
     private responseInterceptors: responseInterceptor[] = []
@@ -66,7 +100,7 @@ class FetchService {
         if (!response.ok) {
             throw new HttpError(
                 response.status,
-                response.statusText || `请求失败 (${response.status})`,
+                await readErrorMessage(response),
             )
         }
 
@@ -134,28 +168,7 @@ fetchService.addRequestInterceptor((_url, options) => {
 fetchService.addResponseInterceptor(async (response) => {
     switch (response.status) {
         case 400: {
-            const text = await response.clone().text()
-            let errorMessage = '请求参数错误'
-
-            if (text.trim()) {
-                try {
-                    const data = JSON.parse(text)
-
-                    if (typeof data === 'string' && data.trim()) {
-                        errorMessage = data
-                    } else if (data && typeof data === 'object') {
-                        if (
-                            typeof data.message === 'string' &&
-                            data.message.trim()
-                        ) {
-                            errorMessage = data.message
-                        }
-                    }
-                } catch {
-                    // 非 JSON 响应保留默认提示
-                }
-            }
-            message.error(errorMessage)
+            message.error(await readErrorMessage(response))
             break
         }
         case 401:
