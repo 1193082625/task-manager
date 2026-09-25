@@ -7,6 +7,7 @@ import {
     message,
     Popconfirm,
     Table,
+    Tag,
     type GetProp,
     type TableProps,
 } from 'antd'
@@ -18,6 +19,8 @@ import UserDetail from './Detail'
 import { PlusOutlined } from '@ant-design/icons'
 import UserForm from './Form'
 import type { User } from '@/types/user.type'
+import { useUserStore } from '@/stores/user'
+import ResetPasswordModal from './ResetPasswordModal'
 
 type UserSearchValues = {
     name?: string
@@ -71,6 +74,9 @@ function Users() {
         },
     })
     const queryClient = useQueryClient()
+    const currentUserId = useUserStore((state) => state.userInfo?.id)
+    const [resetPasswordUser, setResetPasswordUser] =
+        useState<Pick<User, 'id' | 'name'>>()
 
     const columns: ColumnsType<User> = [
         {
@@ -94,6 +100,16 @@ function Users() {
             },
         },
         {
+            title: '账号状态',
+            dataIndex: 'isActive',
+            width: 120,
+            render: (isActive: boolean) => (
+                <Tag color={isActive ? 'success' : 'default'}>
+                    {isActive ? '已启用' : '已停用'}
+                </Tag>
+            ),
+        },
+        {
             title: '操作',
             key: 'action',
             width: 240,
@@ -105,6 +121,41 @@ function Users() {
                     </Button>
                     <Button type="link" onClick={() => handleEdit(record.id)}>
                         编辑
+                    </Button>
+                    <Popconfirm
+                        title={
+                            record.isActive
+                                ? '确定停用该账号吗？'
+                                : '确定启用该账号吗？'
+                        }
+                        description={
+                            record.isActive
+                                ? '停用后，该用户现有登录状态将立即失效'
+                                : '启用后，该用户可重新登录'
+                        }
+                        okText={record.isActive ? '停用' : '启用'}
+                        cancelText="取消"
+                        disabled={record.id === currentUserId}
+                        onConfirm={() => handleStatusChange(record)}
+                    >
+                        <Button
+                            type="link"
+                            disabled={record.id === currentUserId}
+                        >
+                            {record.isActive ? '停用' : '启用'}
+                        </Button>
+                    </Popconfirm>
+                    <Button
+                        type="link"
+                        disabled={record.id === currentUserId}
+                        onClick={() =>
+                            setResetPasswordUser({
+                                id: record.id,
+                                name: record.name,
+                            })
+                        }
+                    >
+                        重置密码
                     </Button>
                     <Popconfirm
                         title="删除成员"
@@ -273,6 +324,25 @@ function Users() {
         ])
     }
 
+    const handleStatusChange = async (user: User) => {
+        const nextIsActive = !user.isActive
+
+        try {
+            await fetchService.patch(`/api/users/${user.id}/status`, {
+                isActive: nextIsActive,
+            })
+        } catch {
+            message.error(nextIsActive ? '启用账号失败' : '停用账号失败')
+            return
+        }
+
+        message.success(nextIsActive ? '账号已启用' : '账号已停用')
+
+        await queryClient.invalidateQueries({
+            queryKey: ['users'],
+        })
+    }
+
     return (
         <>
             <div className="w-full min-h-full flex flex-col gap-[20px]">
@@ -350,6 +420,12 @@ function Users() {
                 formOpen={formOpen}
                 onClose={handleFormClose}
                 onSaved={handleFormSaved}
+            />
+
+            <ResetPasswordModal
+                open={!!resetPasswordUser}
+                user={resetPasswordUser}
+                onClose={() => setResetPasswordUser(undefined)}
             />
         </>
     )

@@ -1,11 +1,15 @@
 import { clearSession } from '@/api/clearSession'
+import ChangePasswordModal from '@/components/ChangePasswordModal'
 import router from '@/routes'
 import { useUserStore } from '@/stores/user'
-import { LogoutOutlined } from '@ant-design/icons'
+import { KeyOutlined, LogoutOutlined, RightOutlined } from '@ant-design/icons'
+import { Dropdown, type MenuProps } from 'antd'
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 
 function DefaultLayout() {
     const userInfo = useUserStore((state) => state.userInfo)
+    const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
     const navData = [
         {
@@ -38,6 +42,22 @@ function DefaultLayout() {
         clearSession()
         router.navigate('/login', { replace: true })
     }
+
+    const items: MenuProps['items'] = [
+        {
+            key: 'change-password',
+            icon: <KeyOutlined />,
+            label: '修改密码',
+            onClick: () => setChangePasswordOpen(true),
+        },
+        {
+            key: 'logout',
+            icon: <LogoutOutlined />,
+            label: '退出登录',
+            danger: true,
+            onClick: handleLogout,
+        },
+    ]
 
     return (
         <div className="flex flex-col w-full h-[100vh] bg-[#F2F4F7] overflow-hidden">
@@ -95,10 +115,15 @@ function DefaultLayout() {
 
                 {/* user */}
                 <div className="flex items-center gap-[10px]">
-                    <div>欢迎你，{userInfo?.name}</div>
-                    <button onClick={handleLogout}>
-                        <LogoutOutlined />
-                    </button>
+                    <Dropdown
+                        menu={{ items }}
+                        placement="bottom"
+                        arrow={{ pointAtCenter: true }}
+                    >
+                        <div className="cursor-pointer">
+                            欢迎你，{userInfo?.name} <RightOutlined />
+                        </div>
+                    </Dropdown>
                 </div>
             </header>
             <div className="flex-1 flex min-h-0 min-w-0">
@@ -129,6 +154,11 @@ function DefaultLayout() {
                 </main>
             </div>
             {/* <footer>底部</footer> */}
+
+            <ChangePasswordModal
+                open={changePasswordOpen}
+                onClose={() => setChangePasswordOpen(false)}
+            />
         </div>
     )
 }

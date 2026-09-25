@@ -1,6 +1,6 @@
 import type { ProjectDetail, ProjectItem } from '@/types/project.type'
 import type { CreateTask, Task, TaskItem } from '@/types/task.type'
-import type { CreateUser, SystemRole, User } from '@/types/user.type'
+import type { CreateUser, User } from '@/types/user.type'
 import { http, HttpResponse, passthrough } from 'msw'
 
 type LoginBody = {
@@ -200,6 +200,7 @@ const userList: User[] = [
         phone: '15378764444',
         role: 'designer',
         systemRole: 'ADMIN',
+        isActive: true,
     },
     {
         id: '2',
@@ -207,6 +208,7 @@ const userList: User[] = [
         phone: '15370000444',
         role: 'developer',
         systemRole: 'USER',
+        isActive: true,
     },
     {
         id: '3',
@@ -214,6 +216,7 @@ const userList: User[] = [
         phone: '15500000000',
         role: 'tester',
         systemRole: 'USER',
+        isActive: true,
     },
     {
         id: '4',
@@ -221,6 +224,7 @@ const userList: User[] = [
         phone: '15500000000',
         role: 'tester',
         systemRole: 'USER',
+        isActive: true,
     },
     {
         id: '5',
@@ -228,6 +232,7 @@ const userList: User[] = [
         phone: '15500000000',
         role: 'tester',
         systemRole: 'USER',
+        isActive: true,
     },
     {
         id: '6',
@@ -235,6 +240,7 @@ const userList: User[] = [
         phone: '15500000000',
         role: 'tester',
         systemRole: 'USER',
+        isActive: true,
     },
     {
         id: '7',
@@ -242,6 +248,7 @@ const userList: User[] = [
         phone: '15500000000',
         role: 'tester',
         systemRole: 'USER',
+        isActive: true,
     },
 ]
 
@@ -299,12 +306,13 @@ export const handlers = [
     }),
     http.post<never, CreateUser>('/api/users', async ({ request }) => {
         const userData = await request.json()
-        const newUser = {
+        const newUser: User = {
             id: (userList.length + 1).toString(),
             name: userData.name,
             phone: userData.phone,
             role: userData.role,
-            systemRole: 'USER' as SystemRole,
+            systemRole: 'USER',
+            isActive: true,
         }
         userList.push(newUser)
         return HttpResponse.json(newUser)

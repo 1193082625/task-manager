@@ -8,15 +8,16 @@ export interface User {
     phone: string
     role: string
     systemRole: SystemRole
+    isActive: boolean
 }
 
 export type UserInfo = User
 
-export type CreateUser = Omit<User, 'id' | 'systemRole'> & {
+export type CreateUser = Omit<User, 'id' | 'systemRole' | 'isActive'> & {
     password: string
 }
 
-export type UpdateUser = Omit<User, 'id' | 'systemRole'>
+export type UpdateUser = Omit<User, 'id' | 'systemRole' | 'isActive'>
 
 export interface TableParams {
     pagination?: TablePaginationConfig
