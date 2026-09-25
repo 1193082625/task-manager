@@ -2,8 +2,9 @@ import fetchService from '@/api/request'
 import Loading from '@/components/Loading'
 import { STATUS } from '@/constant'
 import { useProjects } from '@/hooks/useProjects'
-import { useUsers } from '@/hooks/useUsers'
 import type { Task } from '@/types/task.type'
+import { getProjectMembers } from '@/api/projects'
+import { useUserStore } from '@/stores/user'
 import {
     dateTimeFormat,
     formatBeijingTime,
@@ -166,11 +167,37 @@ function TaskForm({
         }
     }
 
-    const { data: users = [] } = useUsers()
-    const userOptions = users.map((user) => ({
-        value: user.id,
-        label: user.name,
-    }))
+    const currentUser = useUserStore((state) => state.userInfo)
+
+    const selectedProjectId: string | null | undefined = Form.useWatch(
+        'projectId',
+        form,
+    )
+
+    const {
+        data: projectMembers = [],
+        isFetching: membersFetching,
+        error: membersError,
+    } = useQuery({
+        queryKey: ['project-members', selectedProjectId],
+        enabled: formOpen && !!selectedProjectId,
+        queryFn: ({ signal }) => {
+            if (!selectedProjectId) {
+                throw new Error('缺少项目 ID')
+            }
+            return getProjectMembers(selectedProjectId, signal)
+        },
+        retry: false,
+    })
+
+    const userOptions = selectedProjectId
+        ? projectMembers.map((member) => ({
+              value: member.userId,
+              label: member.isActive ? member.name : `${member.name}（已停用）`,
+          }))
+        : currentUser
+          ? [{ value: currentUser.id, label: currentUser.name }]
+          : []
 
     const { data: projects = [] } = useProjects()
     const projectOptions = projects.map((project) => ({
@@ -207,6 +234,9 @@ function TaskForm({
             {dataLoading && <Loading />}
 
             {id && error && <div role="alert">{error.message}</div>}
+            {selectedProjectId && membersError && (
+                <div role="alert">加载项目成员失败：{membersError.message}</div>
+            )}
 
             <Form
                 form={form}
@@ -230,18 +260,63 @@ function TaskForm({
                         allowClear
                         placeholder="请选择所属项目"
                         options={projectOptions}
+                        onChange={() => {
+                            form.setFieldValue('principalId', undefined)
+                        }}
                     ></Select>
                 </Form.Item>
                 <Form.Item
                     name="principalId"
                     label="负责人"
-                    rules={[{ required: true, message: '请选择负责人' }]}
+                    rules={[
+                        { required: true, message: '请选择负责人' },
+                        {
+                            validator: (_, value) => {
+                                if (!value) {
+                                    return Promise.resolve()
+                                }
+
+                                if (selectedProjectId && membersFetching) {
+                                    return Promise.reject(
+                                        new Error(
+                                            '正在加载项目成员，请稍后保存',
+                                        ),
+                                    )
+                                }
+
+                                if (selectedProjectId && membersError) {
+                                    return Promise.reject(
+                                        new Error(
+                                            '项目成员加载失败，请重新打开表单',
+                                        ),
+                                    )
+                                }
+
+                                const available = userOptions.some(
+                                    (option) => option.value === value,
+                                )
+
+                                return available
+                                    ? Promise.resolve()
+                                    : Promise.reject(
+                                          new Error(
+                                              '该负责人已不适用，请重新选择',
+                                          ),
+                                      )
+                            },
+                        },
+                    ]}
                 >
                     <Select
                         allowClear
-                        placeholder="请选择负责人"
+                        placeholder={
+                            selectedProjectId
+                                ? '请选择项目成员'
+                                : '独立任务请选择自己'
+                        }
                         options={userOptions}
-                    ></Select>
+                        loading={!!selectedProjectId && membersFetching}
+                    />
                 </Form.Item>
                 {id && (
                     <Form.Item label="状态">

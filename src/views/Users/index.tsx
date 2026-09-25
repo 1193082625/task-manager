@@ -310,6 +310,10 @@ function Users() {
                 { queryKey: ['users'] },
                 { throwOnError: true },
             ),
+            queryClient.invalidateQueries(
+                { queryKey: ['project-members'] },
+                { throwOnError: true },
+            ),
             ...(editUserId
                 ? [
                       queryClient.resetQueries(
@@ -338,9 +342,20 @@ function Users() {
 
         message.success(nextIsActive ? '账号已启用' : '账号已停用')
 
-        await queryClient.invalidateQueries({
-            queryKey: ['users'],
-        })
+        try {
+            await Promise.all([
+                queryClient.invalidateQueries(
+                    { queryKey: ['users'] },
+                    { throwOnError: true },
+                ),
+                queryClient.invalidateQueries(
+                    { queryKey: ['project-members'] },
+                    { throwOnError: true },
+                ),
+            ])
+        } catch {
+            message.warning('账号状态已更新，但刷新失败，请重新加载页面')
+        }
     }
 
     return (

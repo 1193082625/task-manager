@@ -393,6 +393,13 @@ function Projects() {
                           },
                           { throwOnError: true },
                       ),
+                      queryClient.invalidateQueries(
+                          {
+                              queryKey: ['project-members', editProjectId],
+                              exact: true,
+                          },
+                          { throwOnError: true },
+                      ),
                   ]
                 : []),
         ])

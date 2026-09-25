@@ -49,11 +49,6 @@ function ProjectForm({
 
     const { data: users = [] } = useUsers()
 
-    const userOptions = users.map((user) => ({
-        value: user.id,
-        label: user.name,
-    }))
-
     const handleChangePrincipal = (principalId: string) => {
         console.log('切换负责人', principalId)
     }
@@ -78,6 +73,18 @@ function ProjectForm({
         },
         retry: false,
     })
+
+    const originalPrincipalId = projectId
+        ? projectDetail?.principalId
+        : undefined
+
+    const userOptions = users
+        .filter((user) => user.isActive || user.id === originalPrincipalId)
+        .map((user) => ({
+            value: user.id,
+            label: user.isActive ? user.name : `${user.name}（已停用）`,
+            disabled: !user.isActive,
+        }))
 
     const title = projectId ? projectDetail?.name : '创建项目'
     const stage = STAGE.find((stage) => stage.value === projectDetail?.stage)
