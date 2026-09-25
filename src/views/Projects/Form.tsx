@@ -258,7 +258,6 @@ function ProjectForm({
                     <DatePicker
                         format={dateFormat}
                         placeholder="请选择计划开始时间"
-                        disabled={!!projectId}
                     />
                 </Form.Item>
                 <Form.Item
@@ -289,7 +288,6 @@ function ProjectForm({
                     <DatePicker
                         format={dateFormat}
                         placeholder="请选择计划结束时间"
-                        disabled={!!projectId}
                     />
                 </Form.Item>
                 {projectId && (

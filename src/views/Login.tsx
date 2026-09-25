@@ -6,7 +6,7 @@ import type { UserInfo } from '@/types/user.type'
 import { LockOutlined, UserOutlined } from '@ant-design/icons'
 import { Alert, Button, Form, Input } from 'antd'
 import { useState } from 'react'
-import { useLocation } from 'react-router'
+import { useNavigate } from 'react-router'
 
 type LoginForm = {
     phone: string
@@ -24,7 +24,8 @@ function Login() {
 
     const setToken = useUserStore((state) => state.setToken)
     const setUserInfo = useUserStore((state) => state.setUserInfo)
-    const location = useLocation()
+
+    const navigate = useNavigate()
 
     const handleSubmit = async (data: LoginForm) => {
         if (isSubmitting) return
@@ -54,8 +55,19 @@ function Login() {
                 from !== '/login'
                     ? from
                     : '/'
+            console.log('登录跳转前', {
+                target,
+                pathname: window.location.pathname,
+                hasToken: Boolean(useUserStore.getState().token),
+            })
 
-            router.navigate(target, { replace: true })
+            await navigate(target, { replace: true })
+
+            console.log('登录跳转后', {
+                pathname: window.location.pathname,
+                routerPath: router.state.location.pathname,
+                hasToken: Boolean(useUserStore.getState().token),
+            })
         } catch (error) {
             useUserStore.getState().clear()
 
