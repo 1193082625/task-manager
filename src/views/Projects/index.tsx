@@ -339,6 +339,7 @@ function Projects() {
             await fetchService.delete(`/api/projects/${id}`)
         } catch {
             message.error('删除失败')
+            return
         }
 
         message.success('删除成功')
