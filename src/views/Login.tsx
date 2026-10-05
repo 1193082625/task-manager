@@ -6,7 +6,7 @@ import type { UserInfo } from '@/types/user.type'
 import { LockOutlined, UserOutlined } from '@ant-design/icons'
 import { Alert, Button, Form, Input } from 'antd'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 
 type LoginForm = {
     phone: string
@@ -26,6 +26,7 @@ function Login() {
     const setUserInfo = useUserStore((state) => state.setUserInfo)
 
     const navigate = useNavigate()
+    const location = useLocation()
 
     const handleSubmit = async (data: LoginForm) => {
         if (isSubmitting) return

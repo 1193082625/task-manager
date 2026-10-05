@@ -9,20 +9,5 @@
     <body>
         <div id="root"></div>
         <script type="module" src="/src/main.tsx"></script>
-        <script src="/performance-monitor.js"></script>
-        <script>
-            const monitor =
-                window.PerformancePlatformBrowser.createPaintMonitor({
-                    endpoint: 'http://localhost:3000/api/v2/events/batch',
-                    appId: 'task-manager',
-                    appVersion: '1.0.0',
-                    environment: 'development',
-                    sampleRate: 1,
-                    debug: (message, error) => {
-                        console.debug('[性能监控]', message, error)
-                    },
-                })
-            monitor.start()
-        </script>
     </body>
 </html>
